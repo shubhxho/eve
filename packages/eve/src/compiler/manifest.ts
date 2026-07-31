@@ -639,6 +639,17 @@ const compiledHookDefinitionSchema: z.ZodType<CompiledHookDefinition> = z
   })
   .strict();
 
+const compiledExtensionMountSchema: z.ZodType<CompiledExtensionMount> = z
+  .object({
+    namespace: z.string(),
+    packageName: z.string(),
+    packageNamespace: z.string(),
+    sourceRoot: z.string(),
+    mountSourceId: z.string(),
+    mountLogicalPath: z.string(),
+  })
+  .strict();
+
 /**
  * Zod schema for one non-recursive compiled authored agent payload.
  */
@@ -655,6 +666,7 @@ const compiledAgentNodeManifestSchema = z
     dynamicInstructions: z.array(compiledDynamicInstructionsDefinitionSchema).default([]),
     dynamicSkills: z.array(compiledDynamicSkillDefinitionSchema).default([]),
     dynamicTools: z.array(compiledDynamicToolDefinitionSchema).default([]),
+    extensionMounts: z.array(compiledExtensionMountSchema).default([]),
     hooks: z.array(compiledHookDefinitionSchema),
     sandbox: compiledSandboxDefinitionSchema.nullable(),
     sandboxWorkspaces: z.array(compiledSandboxWorkspaceSchema),
@@ -701,7 +713,7 @@ const compiledSubagentEdgeSchema: z.ZodType<CompiledSubagentEdge> = z
   .strict();
 
 /**
- * One mounted extension recorded on the root compiled manifest. The runtime
+ * One mounted extension recorded on a compiled agent manifest. The runtime
  * evaluates {@link mountLogicalPath} at module-map load so the mount's factory
  * call binds the extension's config before any tool runs.
  */
@@ -724,17 +736,6 @@ export interface CompiledExtensionMount {
   readonly mountSourceId: string;
   readonly mountLogicalPath: string;
 }
-
-const compiledExtensionMountSchema: z.ZodType<CompiledExtensionMount> = z
-  .object({
-    namespace: z.string(),
-    packageName: z.string(),
-    packageNamespace: z.string(),
-    sourceRoot: z.string(),
-    mountSourceId: z.string(),
-    mountLogicalPath: z.string(),
-  })
-  .strict();
 
 /**
  * Zod schema for the versioned compiled manifest emitted by the compiler.
@@ -784,6 +785,7 @@ export function createCompiledAgentNodeManifest(input: {
   readonly dynamicInstructions?: readonly CompiledDynamicInstructionsDefinition[];
   readonly dynamicSkills?: readonly CompiledDynamicSkillDefinition[];
   readonly dynamicTools?: readonly CompiledDynamicToolDefinition[];
+  readonly extensionMounts?: readonly CompiledExtensionMount[];
   readonly hooks?: readonly CompiledHookDefinition[];
   readonly remoteAgents?: readonly CompiledRemoteAgentNode[];
   readonly sandbox?: CompiledSandboxDefinition | null;
@@ -866,6 +868,7 @@ export function createCompiledAgentNodeManifest(input: {
     dynamicInstructions: [...(input.dynamicInstructions ?? [])],
     dynamicSkills: [...(input.dynamicSkills ?? [])],
     dynamicTools: [...(input.dynamicTools ?? [])],
+    extensionMounts: [...(input.extensionMounts ?? [])],
     hooks: [...(input.hooks ?? [])],
     remoteAgents: [...(input.remoteAgents ?? [])],
     sandbox: input.sandbox ?? null,
