@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 
 import type { IFileSystem } from "just-bash";
 
@@ -74,10 +74,14 @@ async function loadJustBashModule(input: {
 export async function createBashSandbox(input: {
   readonly appRoot: string;
   readonly autoInstall: boolean;
+  readonly bindMount?: {
+    readonly sourceRootPath: string;
+    readonly target: string;
+  };
   readonly rootPath: string;
   readonly sessionKey: string;
 }): Promise<BashSandbox> {
-  const { ReadWriteFs, Sandbox } = await loadJustBashModule({
+  const { MountableFs, ReadWriteFs, Sandbox } = await loadJustBashModule({
     appRoot: input.appRoot,
     autoInstall: input.autoInstall,
   });
@@ -86,12 +90,33 @@ export async function createBashSandbox(input: {
   const metadata = await readLocalMetadata(metadataPath);
 
   await mkdir(filesystemRootPath, { recursive: true });
+  if (input.bindMount !== undefined) {
+    // MountableFs routes exact descendant paths to the mounted filesystem, but shell tools can
+    // only discover and traverse the mount when its target also exists in the base filesystem.
+    await mkdir(resolve(filesystemRootPath, `.${input.bindMount.target}`), { recursive: true });
+  }
 
-  const filesystem = new ReadWriteFs({
+  const writableFilesystem = new ReadWriteFs({
     allowSymlinks: true,
     maxFileReadSize: Number.MAX_SAFE_INTEGER,
     root: filesystemRootPath,
   });
+  const filesystem: IFileSystem =
+    input.bindMount === undefined
+      ? writableFilesystem
+      : new MountableFs({
+          base: writableFilesystem,
+          mounts: [
+            {
+              filesystem: new ReadWriteFs({
+                allowSymlinks: false,
+                maxFileReadSize: Number.MAX_SAFE_INTEGER,
+                root: input.bindMount.sourceRootPath,
+              }),
+              mountPoint: input.bindMount.target,
+            },
+          ],
+        });
 
   await ensureLocalSandboxDirectories(filesystem);
 

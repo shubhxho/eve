@@ -14,4 +14,16 @@ export interface JustBashSandboxCreateOptions {
    * actionable install error instead. Defaults to `true`.
    */
   readonly autoInstall?: boolean;
+  /**
+   * Mounts one application directory into the sandbox alongside its
+   * session-owned `/workspace`. The source must be relative to the application
+   * root and cannot escape it through path traversal or symlinks.
+   */
+  readonly bindMount?: {
+    readonly access: "read-write";
+    /** Host directory relative to the application root. */
+    readonly source: string;
+    /** Absolute mount point inside the sandbox, such as `/source`. */
+    readonly target: string;
+  };
 }

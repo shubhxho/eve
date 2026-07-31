@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { type Dirent } from "node:fs";
-import { mkdir, readdir, rename, rm, stat } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { mkdir, readdir, realpath, rename, rm, stat } from "node:fs/promises";
+import { dirname, isAbsolute, join, posix, relative, resolve, sep } from "node:path";
 
 import {
   copyDirectoryAtomically,
@@ -64,6 +64,9 @@ export function createJustBashSandboxBackend(
   input: CreateJustBashSandboxBackendInput = {},
 ): SandboxBackend {
   const autoInstall = input.createOptions?.autoInstall ?? true;
+  const bindMount = input.createOptions?.bindMount;
+  const bindMountTarget =
+    bindMount === undefined ? undefined : normalizeBindMountTarget(bindMount.target);
   return {
     name: JUST_BASH_BACKEND_NAME,
     async prewarm(prewarmInput: SandboxBackendPrewarmInput): Promise<SandboxBackendPrewarmResult> {
@@ -154,9 +157,20 @@ export function createJustBashSandboxBackend(
         }
       }
 
+      const resolvedBindMount =
+        bindMount === undefined || bindMountTarget === undefined
+          ? undefined
+          : {
+              sourceRootPath: await resolveBindMountSource(
+                createInput.runtimeContext.appRoot,
+                bindMount.source,
+              ),
+              target: bindMountTarget,
+            };
       const sandbox = await createBashSandbox({
         appRoot: createInput.runtimeContext.appRoot,
         autoInstall,
+        bindMount: resolvedBindMount,
         rootPath: sessionRootPath,
         sessionKey: createInput.sessionKey,
       });
@@ -164,6 +178,29 @@ export function createJustBashSandboxBackend(
       return createJustBashHandle(sandbox, JUST_BASH_BACKEND_NAME);
     },
   };
+}
+
+function normalizeBindMountTarget(target: string): string {
+  const normalized = posix.normalize(target);
+  if (!posix.isAbsolute(target) || normalized === "/" || normalized !== target) {
+    throw new Error(
+      `Just-bash bind mount target "${target}" must be a normalized absolute sandbox path other than "/".`,
+    );
+  }
+  return normalized;
+}
+
+async function resolveBindMountSource(appRoot: string, source: string): Promise<string> {
+  if (source.length === 0 || isAbsolute(source)) {
+    throw new Error("Just-bash bind mount source must be relative to the application root.");
+  }
+  const realAppRoot = await realpath(appRoot);
+  const sourceRoot = await realpath(resolve(realAppRoot, source));
+  const relativePath = relative(realAppRoot, sourceRoot);
+  if (relativePath === ".." || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath)) {
+    throw new Error(`Just-bash bind mount source "${source}" escapes the application root.`);
+  }
+  return sourceRoot;
 }
 
 /**

@@ -10,6 +10,7 @@ import {
   pruneJustBashSandboxTemplates,
 } from "#execution/sandbox/bindings/just-bash.js";
 import type { SandboxBackend } from "#public/definitions/sandbox-backend.js";
+import { justbash } from "#public/sandbox/backends/just-bash.js";
 
 const createScratchDirectory = useTemporaryDirectories();
 
@@ -64,6 +65,32 @@ async function collectStream(stream: ReadableStream<Uint8Array>): Promise<string
 }
 
 describe("just-bash sandbox file API", () => {
+  it("bind mounts an application directory alongside the workspace", async () => {
+    const appRoot = await createTemporaryCacheDirectory("bind-mount-app");
+    const sourceRoot = join(appRoot, "agent");
+    await mkdir(sourceRoot, { recursive: true });
+    await writeFile(join(sourceRoot, "instructions.md"), "before");
+    const backend = justbash({
+      bindMount: { access: "read-write", source: "agent", target: "/source" },
+    });
+
+    const handle = await backend.create({
+      runtimeContext: { appRoot },
+      sessionKey: "session-bind-mount",
+      templateKey: null,
+    });
+
+    expect(await handle.session.readTextFile({ path: "/source/instructions.md" })).toBe("before");
+    await handle.session.writeTextFile({
+      content: "after",
+      path: "/source/instructions.md",
+    });
+    await handle.session.writeTextFile({ content: "scratch", path: "scratch.txt" });
+    expect(await readFile(join(sourceRoot, "instructions.md"), "utf8")).toBe("after");
+    expect(existsSync(join(sourceRoot, "scratch.txt"))).toBe(false);
+    await handle.shutdown();
+  });
+
   it("writes a file via the public session and reads it back", async () => {
     const cacheDirectory = await createTemporaryCacheDirectory("file-api");
     const handle = await createPrewarmedLocalHandle({
