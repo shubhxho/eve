@@ -1,5 +1,13 @@
 # eve
 
+## 0.29.6
+
+### Patch Changes
+
+- 021dbbf: Add `/new` as an alias of `/clear` in the eve dev TUI. It clears model-message history while preserving the current session and its durable resources.
+- 136749f: Make `Ctrl+C` cooperatively cancel or steer a running turn like `Esc` in the eve dev TUI. At the idle prompt, the first `Ctrl+C` now shows an exit warning and a second consecutive press exits.
+- ee50ae7: Prevent the dev TUI from duplicating setup panels when an integration setup error includes multiline command output.
+
 ## 0.29.5
 
 ### Patch Changes
