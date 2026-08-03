@@ -172,6 +172,7 @@ import {
   isInvalidToolCall,
 } from "#harness/tool-call-input-errors.js";
 import { buildStepHooks, emitStepActions, type HarnessStepResult } from "#harness/step-hooks.js";
+import { ToolApprovalContentCollector } from "#harness/tool-approval-content.js";
 import {
   buildToolApproval,
   buildToolSetFromDefinitions,
@@ -913,6 +914,7 @@ export function createToolLoopHarness(config: ToolLoopHarnessConfig): StepFn {
       trailingUserNote?: string;
     };
     let modelCallRuntimeActionTools = config.tools;
+    let modelCallApprovalContents = new ToolApprovalContentCollector();
 
     const runSingleModelCall = async (
       opts: ModelCallOptions & { readonly attemptIndex: number },
@@ -931,6 +933,8 @@ export function createToolLoopHarness(config: ToolLoopHarnessConfig): StepFn {
       const callMessages = opts.trailingUserNote
         ? [...modelMessages, { role: "user" as const, content: opts.trailingUserNote }]
         : modelMessages;
+      const approvalContents = new ToolApprovalContentCollector();
+      modelCallApprovalContents = approvalContents;
       const harnessTools = buildHarnessToolsWithDynamicSubagents(config.tools, ctx);
       const advertisedHarnessTools = getAdvertisedTools({
         session,
@@ -939,6 +943,7 @@ export function createToolLoopHarness(config: ToolLoopHarnessConfig): StepFn {
       modelCallRuntimeActionTools = advertisedHarnessTools;
 
       const flatTools = await buildToolSetWithProviderTools({
+        approvalContents,
         approvedTools,
         capabilities: config.capabilities,
         disabledProviderTools: opts.disabledProviderTools,
@@ -952,6 +957,7 @@ export function createToolLoopHarness(config: ToolLoopHarnessConfig): StepFn {
           tools: buildDynamicTools(ctx),
         });
         const dynamicToolSet = buildToolSetFromDefinitions({
+          approvalContents,
           approvedTools,
           capabilities: config.capabilities,
           disabledProviderTools: opts.disabledProviderTools,
@@ -1457,6 +1463,7 @@ export function createToolLoopHarness(config: ToolLoopHarnessConfig): StepFn {
     // --- Handle result ------------------------------------------------------
 
     return handleStepResult({
+      approvalContents: modelCallApprovalContents,
       config,
       emit,
       emissionState,
@@ -1951,6 +1958,7 @@ async function attemptEmptyResponseRecovery(input: {
  * park, continue the tool loop, or terminate.
  */
 async function handleStepResult(input: {
+  readonly approvalContents: ToolApprovalContentCollector;
   readonly config: ToolLoopHarnessConfig;
   readonly emit?: ToolLoopHarnessConfig["handleEvent"];
   readonly emissionState: ReturnType<typeof getHarnessEmissionState>;
@@ -2032,6 +2040,7 @@ async function handleStepResult(input: {
   }
 
   const approvalRequests = extractToolApprovalInputRequests({
+    approvalContents: input.approvalContents,
     content: result.content ?? [],
     excludedCallIds: invalidInputToolCallIds,
   });
