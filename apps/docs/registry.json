@@ -4,6 +4,40 @@
   "homepage": "https://eve.dev",
   "items": [
     {
+      "name": "eve-selfmod",
+      "type": "registry:item",
+      "title": "eve selfmod",
+      "description": "Add a development-only source editing subagent to an eve project.",
+      "dependencies": ["eve-selfmod"],
+      "files": [
+        {
+          "path": "registry/extensions/eve-selfmod/agent.ts",
+          "type": "registry:file",
+          "target": "agent/subagents/selfmod/agent.ts"
+        },
+        {
+          "path": "registry/extensions/eve-selfmod/sandbox.ts",
+          "type": "registry:file",
+          "target": "agent/subagents/selfmod/sandbox.ts"
+        },
+        {
+          "path": "registry/extensions/eve-selfmod/extension.ts",
+          "type": "registry:file",
+          "target": "agent/subagents/selfmod/extensions/selfmod.ts"
+        },
+        {
+          "path": "registry/extensions/eve-selfmod/bash.ts",
+          "type": "registry:file",
+          "target": "agent/subagents/selfmod/tools/bash.ts"
+        },
+        {
+          "path": "registry/extensions/eve-selfmod/write_file.ts",
+          "type": "registry:file",
+          "target": "agent/subagents/selfmod/tools/write_file.ts"
+        }
+      ]
+    },
+    {
       "name": "extension/agent-browser",
       "type": "registry:item",
       "title": "agent-browser",
